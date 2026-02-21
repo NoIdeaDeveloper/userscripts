@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Reddit to Redlib Redirector
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Redirects Reddit to a private Redlib instance, preserving the URL path
 // @author       You
 // @match        *://www.reddit.com/*

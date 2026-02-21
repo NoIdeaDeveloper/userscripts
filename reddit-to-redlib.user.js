@@ -5,6 +5,7 @@
 // @description  Redirects Reddit to a private Redlib instance, preserving the URL path
 // @author       You
 // @match        *://www.reddit.com/*
+// @run-at       document-start
 // @grant        none
 // ==/UserScript==
 

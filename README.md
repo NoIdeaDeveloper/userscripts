@@ -11,13 +11,13 @@ Grant Userscripts permission to run on the relevant sites when Safari prompts yo
 
 1. reddit-to-redlib.user.js — Reddit → Redlib
 
-Silently redirects all Reddit pages to a Redlib instance — a privacy-respecting, ad-free Reddit frontend. The full URL path and query parameters are preserved, so links to specific posts, subreddits, and search results all work correctly.
+Silently redirects all Reddit pages to a Redlib instance. The full URL path and query parameters are preserved, so links to specific posts, subreddits, and search results all work correctly.
 
 Configuration: Open the script and change the destination variable to point to your preferred Redlib instance. A list of public instances is available at github.com/redlib-org/redlib-instances.
 
 2. youtube-to-invidious.user.js — YouTube → Invidious
 
-Redirects YouTube to an Invidious instance — a privacy-respecting YouTube frontend with no ads, no tracking, and no account required. Handles all YouTube URL types including standard videos, short youtu.be links, search results, channel pages, and embedded players.
+Redirects YouTube to an Invidious instance. Handles all YouTube URL types including standard videos, short youtu.be links, search results, channel pages, and embedded players.
 
 Configuration: Open the script and change the invidious variable to your preferred instance. A list of public instances is available at docs.invidious.io/instances. You can also set videoParams and pageParams to append Invidious URL parameters (e.g. to disable comments or related videos) to every page you visit.
 

@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         TopHN Element Remover
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Remove specific div elements from TopHN.co website
+// @version      1.1
+// @description  Remove specific div elements from TopHN
 // @author       You
 // @match        https://www.tophn.co/*
 // @grant        none
@@ -13,11 +13,12 @@
 
     // Function to remove the target elements
     function removeElements() {
-        // Select all div elements with the specific class combination
-        // This targets: <div class="text-sm mt-1 text-neutral-700 dark:text-neutral-200"></div>
-        const targetDivs = document.querySelectorAll('div.text-sm.mt-1.text-neutral-700.dark\\:text-neutral-200');
+        // Select all div elements with the specific parent container classes
+        // This targets: <div class="mt-2 px-3 py-2 bg-neutral-50 dark:bg-neutral-900 rounded">
+        // The entire container including the background box will be removed
+        const targetDivs = document.querySelectorAll('div.mt-2.px-3.py-2.bg-neutral-50.dark\\:bg-neutral-900.rounded');
         
-        // Loop through each matching element and remove it
+        // Loop through each matching element and remove it from the page
         targetDivs.forEach(function(element) {
             element.remove();
         });

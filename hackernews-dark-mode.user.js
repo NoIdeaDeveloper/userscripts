@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hacker News — Dark Mode & Reddit-Style Comments
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Adds dark mode, Reddit-style colour-coded comment threads, and a next-parent navigation button
 // @author       You
 // @match        *://news.ycombinator.com/*
@@ -122,9 +122,20 @@
             filter: invert(60%) !important;
         }
 
-        /* The footer bar */
+        /* The footer bar background */
         #hnmain > tbody > tr:last-child td {
             background-color: #272729 !important;
+        }
+
+        /* FIX 1: Footer links and text — force to white so they are visible on
+           the dark charcoal footer background. HN's footer uses a <span class="yclinks">
+           containing plain <a> tags with no specific colour class. */
+        .yclinks, .yclinks a {
+            color: #d7dadc !important;
+        }
+        .yclinks a:hover {
+            color: #ffffff !important;
+            text-decoration: underline;
         }
 
         /* Text input fields (e.g. search, submit) */
@@ -145,6 +156,37 @@
         /* More / pagination link */
         a.morelink {
             color: #ff6314 !important;
+        }
+
+        /* --- FIX 2: COLLAPSIBLE COMMENT TEXTAREA ---
+           The main reply/comment textarea is shrunk to a compact height by default.
+           A smooth CSS transition handles the expand animation when the user clicks in. */
+
+        /* The collapsed (default) state — roughly double the height of the submit button.
+           HN's submit button is about 22px tall so we target ~44px for the textarea. */
+        textarea#text.hn-textarea-collapsed {
+            height: 44px !important;
+            min-height: 44px !important;
+            max-height: 44px !important;
+            overflow: hidden !important;
+            resize: none !important;
+            transition: height 0.2s ease, max-height 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+            opacity: 0.75;
+        }
+
+        /* The expanded state — restore the textarea to a comfortable writing height
+           and add a subtle orange focus ring to show it is active. */
+        textarea#text.hn-textarea-expanded {
+            height: 200px !important;
+            min-height: 80px !important;
+            max-height: none !important;
+            overflow: auto !important;
+            resize: vertical !important;
+            transition: height 0.2s ease, max-height 0.2s ease, box-shadow 0.2s ease;
+            cursor: text;
+            opacity: 1;
+            box-shadow: 0 0 0 2px #ff6314 !important;
         }
 
         /* --- FIX 2: COMMENT DEPTH COLOUR CODING ---
@@ -252,7 +294,40 @@
 
 
         // =====================================================================
-        // SECTION 4: FLOATING NEXT-PARENT BUTTON
+        // SECTION 4: COLLAPSIBLE COMMENT TEXTAREA
+        // Finds the main comment submission textarea (id="text") and starts it
+        // in a compact collapsed state. When the user clicks on it, it expands
+        // smoothly to full writing height. If the user clicks away without
+        // typing anything, it collapses back down.
+        // =====================================================================
+
+        // HN's main comment textarea has the id "text"
+        var commentTextarea = document.querySelector('textarea#text');
+
+        if (commentTextarea) {
+            // Start the textarea in the collapsed state
+            commentTextarea.classList.add('hn-textarea-collapsed');
+
+            // When the user clicks into the textarea, expand it to full size
+            commentTextarea.addEventListener('focus', function () {
+                commentTextarea.classList.remove('hn-textarea-collapsed');
+                commentTextarea.classList.add('hn-textarea-expanded');
+            });
+
+            // When the user clicks away (blur), check if the textarea is empty.
+            // If it is, collapse it back — no point showing a large empty box.
+            // If the user has typed something, leave it expanded.
+            commentTextarea.addEventListener('blur', function () {
+                if (commentTextarea.value.trim() === '') {
+                    commentTextarea.classList.remove('hn-textarea-expanded');
+                    commentTextarea.classList.add('hn-textarea-collapsed');
+                }
+            });
+        }
+
+
+        // =====================================================================
+        // SECTION 5: FLOATING NEXT-PARENT BUTTON
         // Creates a circular arrow button fixed to the bottom-right of the screen.
         // Each click finds the next top-level comment (data-depth="0") that is
         // below the current scroll position and smoothly scrolls to it.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hacker News — Dark Mode & Reddit-Style Comments
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.6
 // @description  Adds dark mode, Reddit-style colour-coded comment threads, and a next-parent navigation button
 // @author       You
 // @match        *://news.ycombinator.com/*
@@ -168,8 +168,10 @@
            so 1 row ≈ 22px. We add a little padding on top to account for
            the textarea's internal padding (~8px top + 8px bottom = 16px). */
 
-        /* Collapsed state: 4 rows = (4 × 22px) + 16px padding = ~104px */
-        textarea#text.hn-textarea-collapsed {
+        /* Collapsed state: 4 rows = (4 × 22px) + 16px padding = ~104px
+           Uses a plain textarea selector (no id) so it matches regardless of
+           what name attribute HN assigns to the element. */
+        textarea.hn-textarea-collapsed {
             height: 104px !important;
             min-height: 104px !important;
             max-height: 104px !important;
@@ -182,7 +184,7 @@
 
         /* Expanded state: 8 rows = (8 × 22px) + 16px padding = ~192px.
            An orange focus ring signals that the field is active. */
-        textarea#text.hn-textarea-expanded {
+        textarea.hn-textarea-expanded {
             height: 192px !important;
             min-height: 192px !important;
             max-height: none !important;
@@ -306,8 +308,12 @@
         // typing anything, it collapses back down.
         // =====================================================================
 
-        // HN's main comment textarea has the id "text"
-        var commentTextarea = document.querySelector('textarea#text');
+        // HN's main comment textarea can be found by id="text", or as the first
+        // textarea on the page. We try multiple selectors as a fallback chain
+        // to handle any variation in how HN renders the page.
+        var commentTextarea = document.querySelector('textarea#text')
+                           || document.querySelector('textarea[name="text"]')
+                           || document.querySelector('form textarea');
 
         if (commentTextarea) {
             // Start the textarea in the collapsed state

@@ -2,7 +2,7 @@
 // @name         TopHN Element Remover
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Remove specific div elements from TopHN
+// @description  Remove specific div elements from TopHN.co website
 // @author       You
 // @match        https://www.tophn.co/*
 // @grant        none

@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Hacker News — Dark Mode & Reddit-Style Comments
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Adds dark mode to Hacker News and brings Reddit-style colour-coded, collapsible comment threads
+// @version      1.2
+// @description  Adds dark mode, Reddit-style colour-coded comment threads, and a next-parent navigation button
 // @author       You
 // @match        *://news.ycombinator.com/*
 // @run-at       document-start
@@ -15,7 +15,7 @@
     // =========================================================================
     // SECTION 1: INJECT CSS
     // All visual styling is handled here — dark mode colours, comment indent
-    // colours, collapse animations, and button styles.
+    // colour coding, and the floating navigation button.
     // =========================================================================
     var style = document.createElement('style');
     style.textContent = `
@@ -88,33 +88,38 @@
             filter: invert(60%) !important;
         }
 
-        /* Comment text */
-        .comment, .comment p {
+        /* FIX 1: Force ALL text inside comment rows to be light coloured.
+           HN sometimes inlines color="black" or color="#000000" directly on
+           <font> tags inside comments, which overrides class-level CSS.
+           Targeting every element inside .comtr ensures nothing slips through. */
+        .comtr * {
             color: #d7dadc !important;
         }
 
-        /* Commenter username */
+        /* Re-apply specific colour overrides that the wildcard above would flatten */
+
+        /* Commenter username — orange accent */
         .hnuser, a.hnuser {
             color: #ff6314 !important;
             font-weight: 600;
         }
 
-        /* Comment age / timestamp */
-        .age a {
+        /* Comment age / timestamp and reply link — muted grey */
+        .age a, .reply a {
             color: #818384 !important;
         }
-
-        /* "reply" link inside comments */
-        .reply a {
-            color: #818384 !important;
-        }
-        .reply a:hover {
+        .reply a:hover, .age a:hover {
             color: #d7dadc !important;
         }
 
-        /* Links inside comment bodies */
+        /* Links inside comment bodies — blue accent */
         .comment a {
             color: #4fbdff !important;
+        }
+
+        /* Vote arrow buttons — keep them visible on dark background */
+        .votearrow {
+            filter: invert(60%) !important;
         }
 
         /* The footer bar */
@@ -142,73 +147,61 @@
             color: #ff6314 !important;
         }
 
-        /* --- COMMENT DEPTH COLOUR CODING --- */
-        /* Each indent level gets a left border in a distinct colour,
-           mimicking Reddit mobile's thread colour system */
-        .comment-tree .comtr { position: relative; }
+        /* --- FIX 2: COMMENT DEPTH COLOUR CODING ---
+           The coloured border is now applied to the .commtext div (the actual
+           comment content block) rather than the outer table. This places the
+           border right beside the comment text instead of at the screen edge. */
+        .comtr .commtext {
+            padding-left: 8px !important;
+            border-left: 3px solid transparent;
+        }
 
-        [data-depth="0"] > td > .comment-indent-marker { border-left: 3px solid transparent; }
-        [data-depth="1"] > td > table { border-left: 3px solid #ff4500; padding-left: 6px; }
-        [data-depth="2"] > td > table { border-left: 3px solid #0dd3bb; padding-left: 6px; }
-        [data-depth="3"] > td > table { border-left: 3px solid #ffb000; padding-left: 6px; }
-        [data-depth="4"] > td > table { border-left: 3px solid #46d160; padding-left: 6px; }
-        [data-depth="5"] > td > table { border-left: 3px solid #cc69b9; padding-left: 6px; }
-        [data-depth="6"] > td > table { border-left: 3px solid #0079d3; padding-left: 6px; }
-        [data-depth="7"] > td > table { border-left: 3px solid #ff585b; padding-left: 6px; }
+        /* Each depth level gets its own colour. The data-depth attribute is set
+           by our JavaScript below based on HN's indentation spacer widths. */
+        [data-depth="0"] .commtext { border-left-color: transparent !important; }
+        [data-depth="1"] .commtext { border-left-color: #ff4500 !important; }
+        [data-depth="2"] .commtext { border-left-color: #0dd3bb !important; }
+        [data-depth="3"] .commtext { border-left-color: #ffb000 !important; }
+        [data-depth="4"] .commtext { border-left-color: #46d160 !important; }
+        [data-depth="5"] .commtext { border-left-color: #cc69b9 !important; }
+        [data-depth="6"] .commtext { border-left-color: #0079d3 !important; }
+        [data-depth="7"] .commtext { border-left-color: #ff585b !important; }
         /* Cycle back for very deep threads */
-        [data-depth="8"] > td > table { border-left: 3px solid #ff4500; padding-left: 6px; }
-        [data-depth="9"] > td > table { border-left: 3px solid #0dd3bb; padding-left: 6px; }
+        [data-depth="8"] .commtext { border-left-color: #ff4500 !important; }
+        [data-depth="9"] .commtext { border-left-color: #0dd3bb !important; }
 
-        /* --- COLLAPSE BUTTON --- */
-        /* A small clickable indicator injected next to each comment */
-        .hn-collapse-btn {
-            display: inline-flex;
+        /* --- FLOATING NEXT-PARENT BUTTON ---
+           A circular button fixed to the bottom-right corner of the screen.
+           Clicking it scrolls down to the next top-level (depth 0) comment. */
+        #hn-next-parent-btn {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: #ff6314;
+            color: #ffffff;
+            font-size: 22px;
+            line-height: 1;
+            display: flex;
             align-items: center;
             justify-content: center;
-            width: 18px;
-            height: 18px;
-            border-radius: 3px;
-            background-color: #272729;
-            border: 1px solid #343536;
-            color: #818384;
-            font-size: 11px;
-            font-weight: bold;
             cursor: pointer;
-            margin-right: 6px;
-            vertical-align: middle;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+            z-index: 9999;
+            border: none;
+            transition: background-color 0.15s, transform 0.1s;
             user-select: none;
-            flex-shrink: 0;
-            transition: background-color 0.15s, color 0.15s;
-            line-height: 1;
         }
 
-        .hn-collapse-btn:hover {
-            background-color: #343536;
-            color: #d7dadc;
+        #hn-next-parent-btn:hover {
+            background-color: #e55a10;
+            transform: scale(1.08);
         }
 
-        /* When a thread is collapsed, show a "+" icon */
-        .hn-collapse-btn.collapsed {
-            color: #ff6314;
-            border-color: #ff6314;
-        }
-
-        /* The collapsed child rows are hidden */
-        .hn-collapsed {
-            display: none !important;
-        }
-
-        /* Faded "N replies hidden" indicator shown when a thread is collapsed */
-        .hn-collapsed-indicator {
-            font-size: 11px;
-            color: #818384;
-            font-style: italic;
-            margin-left: 4px;
-        }
-
-        /* Smooth collapse transition for comment bodies */
-        .commtext {
-            transition: opacity 0.1s;
+        #hn-next-parent-btn:active {
+            transform: scale(0.95);
         }
 
     `;
@@ -228,8 +221,9 @@
         // =====================================================================
         // SECTION 3: CALCULATE COMMENT DEPTH
         // HN uses indentation via a spacer <img> whose width tells us how deep
-        // each comment is nested. We use this to assign a data-depth attribute
-        // to each comment row, which our CSS colour coding then targets.
+        // each comment is nested. We read that width and convert it to a depth
+        // number, stored as a data-depth attribute on each comment row so our
+        // CSS colour rules can target it.
         // =====================================================================
 
         // Grab all comment rows — HN gives each one the class "comtr"
@@ -239,108 +233,63 @@
         var indentLevels = [];
 
         commentRows.forEach(function (row) {
-            // HN uses a spacer image whose width encodes the indent depth
+            // HN uses a spacer image whose pixel width encodes the indent depth
             var indentImg = row.querySelector('td.ind img');
             var indentWidth = indentImg ? parseInt(indentImg.getAttribute('width'), 10) : 0;
 
-            // Build a sorted, deduplicated list of known indent widths
+            // Build a sorted, deduplicated list of all known indent widths
             if (!indentLevels.includes(indentWidth)) {
                 indentLevels.push(indentWidth);
                 indentLevels.sort(function (a, b) { return a - b; });
             }
 
-            // The depth is the position of this width in the sorted list
+            // The depth is simply the position of this width in the sorted list
             var depth = indentLevels.indexOf(indentWidth);
 
-            // Store the depth on the row so CSS can target it
+            // Store the depth on the row so our CSS colour rules can target it
             row.setAttribute('data-depth', depth);
         });
 
 
         // =====================================================================
-        // SECTION 4: INJECT COLLAPSE BUTTONS
-        // For every comment, we inject a small [−] button before the username.
-        // Clicking it collapses all child comments in that thread.
+        // SECTION 4: FLOATING NEXT-PARENT BUTTON
+        // Creates a circular arrow button fixed to the bottom-right of the screen.
+        // Each click finds the next top-level comment (data-depth="0") that is
+        // below the current scroll position and smoothly scrolls to it.
         // =====================================================================
 
-        commentRows.forEach(function (row) {
-            // Find the "comhead" span which contains the author, age, etc.
-            var comhead = row.querySelector('.comhead');
-            if (!comhead) return; // Skip deleted/dead comments
+        // Create the button element
+        var btn = document.createElement('button');
+        btn.id = 'hn-next-parent-btn';
+        btn.title = 'Next top-level comment';
+        btn.textContent = '↓'; // Down arrow character
+        document.body.appendChild(btn);
 
-            // Create the collapse toggle button
-            var btn = document.createElement('span');
-            btn.className = 'hn-collapse-btn';
-            btn.textContent = '−'; // minus sign (not a hyphen)
-            btn.title = 'Collapse thread';
+        // Collect all top-level comment rows (depth 0) into an array for easy lookup
+        var parentComments = Array.from(document.querySelectorAll('.comtr[data-depth="0"]'));
 
-            // Insert the button as the very first element in the comment header
-            comhead.insertBefore(btn, comhead.firstChild);
+        btn.addEventListener('click', function () {
+            // Get the current vertical scroll position, with a small offset so
+            // a comment already near the top still counts as "passed"
+            var scrollY = window.scrollY + 10;
 
-            // -----------------------------------------------------------------
-            // COLLAPSE LOGIC
-            // When the button is clicked, find all subsequent comment rows
-            // that are at a greater depth (i.e. children of this comment)
-            // and toggle their visibility.
-            // -----------------------------------------------------------------
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation(); // Don't bubble up to parent thread toggles
-
-                var thisDepth = parseInt(row.getAttribute('data-depth'), 10);
-                var isCollapsed = btn.classList.contains('collapsed');
-
-                // Walk through all comment rows after this one
-                var next = row.nextElementSibling;
-                var childCount = 0;
-
-                while (next && next.classList.contains('comtr')) {
-                    var nextDepth = parseInt(next.getAttribute('data-depth'), 10);
-
-                    // Stop when we reach a comment at the same or shallower depth
-                    if (nextDepth <= thisDepth) break;
-
-                    if (isCollapsed) {
-                        // Re-expanding: show only direct children (depth + 1),
-                        // deeper children stay hidden if their parent is still collapsed
-                        var parentCollapseBtn = next.querySelector('.hn-collapse-btn');
-                        if (nextDepth === thisDepth + 1) {
-                            next.classList.remove('hn-collapsed');
-                        }
-                        // If this child's own collapse button is active, keep its children hidden
-                    } else {
-                        // Collapsing: hide all descendants
-                        next.classList.add('hn-collapsed');
-                        childCount++;
-                    }
-
-                    next = next.nextElementSibling;
+            // Find the first parent comment whose top edge is below the current scroll
+            var nextParent = null;
+            for (var i = 0; i < parentComments.length; i++) {
+                var topEdge = parentComments[i].getBoundingClientRect().top + window.scrollY;
+                if (topEdge > scrollY) {
+                    nextParent = parentComments[i];
+                    break;
                 }
+            }
 
-                if (isCollapsed) {
-                    // Switch back to expanded state
-                    btn.classList.remove('collapsed');
-                    btn.textContent = '−';
-                    btn.title = 'Collapse thread';
-
-                    // Remove the "N replies hidden" indicator if present
-                    var indicator = row.querySelector('.hn-collapsed-indicator');
-                    if (indicator) indicator.remove();
-
-                } else {
-                    // Switch to collapsed state
-                    btn.classList.add('collapsed');
-                    btn.textContent = '+';
-                    btn.title = 'Expand thread';
-
-                    // Show how many replies were hidden
-                    if (childCount > 0) {
-                        var indicator = document.createElement('span');
-                        indicator.className = 'hn-collapsed-indicator';
-                        indicator.textContent = childCount + ' repl' + (childCount === 1 ? 'y' : 'ies') + ' hidden';
-                        comhead.appendChild(indicator);
-                    }
-                }
-            });
+            if (nextParent) {
+                // Scroll smoothly so the next parent comment lands near the top of the screen
+                nextParent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                // If there are no more parent comments below, scroll to the very bottom
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }
         });
 
     }); // end DOMContentLoaded

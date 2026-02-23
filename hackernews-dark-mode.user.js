@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hacker News — Dark Mode & Reddit-Style Comments
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @description  Adds dark mode, Reddit-style colour-coded comment threads, and a next-parent navigation button
 // @author       You
 // @match        *://news.ycombinator.com/*
@@ -127,10 +127,13 @@
             background-color: #272729 !important;
         }
 
-        /* FIX 1: Footer links and text — force to white so they are visible on
-           the dark charcoal footer background. HN's footer uses a <span class="yclinks">
-           containing plain <a> tags with no specific colour class. */
-        .yclinks, .yclinks a {
+        /* FOOTER FIX: HN's footer contains a <span class="yclinks"> with plain <a> tags
+           and also bare text nodes. The wildcard selector ensures every element inside
+           the footer row is forced to white, overriding any inherited grey. */
+        #hnmain > tbody > tr:last-child td,
+        #hnmain > tbody > tr:last-child td *,
+        .yclinks,
+        .yclinks * {
             color: #d7dadc !important;
         }
         .yclinks a:hover {
@@ -158,28 +161,30 @@
             color: #ff6314 !important;
         }
 
-        /* --- FIX 2: COLLAPSIBLE COMMENT TEXTAREA ---
-           The main reply/comment textarea is shrunk to a compact height by default.
-           A smooth CSS transition handles the expand animation when the user clicks in. */
+        /* --- COLLAPSIBLE COMMENT TEXTAREA ---
+           The main reply textarea starts compact at 4 rows tall.
+           When the user clicks into it, it smoothly expands to 8 rows.
+           HN's default textarea font is roughly 16px with ~1.4 line-height,
+           so 1 row ≈ 22px. We add a little padding on top to account for
+           the textarea's internal padding (~8px top + 8px bottom = 16px). */
 
-        /* The collapsed (default) state — roughly double the height of the submit button.
-           HN's submit button is about 22px tall so we target ~44px for the textarea. */
+        /* Collapsed state: 4 rows = (4 × 22px) + 16px padding = ~104px */
         textarea#text.hn-textarea-collapsed {
-            height: 44px !important;
-            min-height: 44px !important;
-            max-height: 44px !important;
+            height: 104px !important;
+            min-height: 104px !important;
+            max-height: 104px !important;
             overflow: hidden !important;
             resize: none !important;
             transition: height 0.2s ease, max-height 0.2s ease, box-shadow 0.2s ease;
             cursor: pointer;
-            opacity: 0.75;
+            opacity: 0.8;
         }
 
-        /* The expanded state — restore the textarea to a comfortable writing height
-           and add a subtle orange focus ring to show it is active. */
+        /* Expanded state: 8 rows = (8 × 22px) + 16px padding = ~192px.
+           An orange focus ring signals that the field is active. */
         textarea#text.hn-textarea-expanded {
-            height: 200px !important;
-            min-height: 80px !important;
+            height: 192px !important;
+            min-height: 192px !important;
             max-height: none !important;
             overflow: auto !important;
             resize: vertical !important;
@@ -189,7 +194,7 @@
             box-shadow: 0 0 0 2px #ff6314 !important;
         }
 
-        /* --- FIX 2: COMMENT DEPTH COLOUR CODING ---
+        /* --- COMMENT DEPTH COLOUR CODING ---
            The coloured border is now applied to the .commtext div (the actual
            comment content block) rather than the outer table. This places the
            border right beside the comment text instead of at the screen edge. */

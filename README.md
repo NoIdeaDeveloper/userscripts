@@ -1,5 +1,4 @@
-Safari Userscripts
-A collection of userscripts I maintain to improve the Safari borwsing experience.
+Safari Userscripts - A collection of userscripts I maintain to improve the Safari borwsing experience.
 
 -- Getting Started --
 

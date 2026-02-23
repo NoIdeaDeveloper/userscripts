@@ -26,9 +26,9 @@ Configuration: Open the script and change the invidious variable to your preferr
 
 Improves the Hacker News reading experience with two visual upgrades:
 
-Dark mode — replaces HN's default white and orange theme with a dark Reddit-inspired colour scheme. Covers the header, story list, comment threads, input fields, and footer.
-Comment depth colours — on thread pages, each level of comment nesting is marked with a distinct coloured left border, making it easy to track conversation structure at a glance. The colours cycle through the same palette used by the Reddit mobile app (red → teal → amber → green → purple → blue → coral).
-Next-parent button — a floating circular arrow button appears in the bottom-right corner of thread pages. Clicking it skips past all child replies and jumps directly to the next top-level comment, making it easy to scan through a thread quickly.
+- Dark mode ~ replaces HN's default white and orange theme with a dark Reddit-inspired colour scheme. Covers the header, story list, comment threads, input fields, and footer.
+- Comment depth colours ~ on thread pages, each level of comment nesting is marked with a distinct coloured left border, making it easy to track conversation structure at a glance. The colours cycle through the same palette used by the Reddit mobile app (red → teal → amber → green → purple → blue → coral).
+- Next-parent button ~ a floating circular arrow button appears in the bottom-right corner of thread pages. Clicking it skips past all child replies and jumps directly to the next top-level comment, making it easy to scan through a thread quickly.
 
 Notes:
 

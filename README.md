@@ -23,12 +23,19 @@ Configuration: Open the script and change the invidious variable to your preferr
 
 3. hackernews-dark-mode.user.js — Hacker News Enhancer
 
-Improves the Hacker News reading experience with two visual upgrades:
+Improves the Hacker News reading experience with a collection of visual and navigational upgrades.
 
-- Dark mode ~ replaces HN's default white and orange theme with a dark Reddit-inspired colour scheme. Covers the header, story list, comment threads, input fields, and footer.
-- Comment depth colours ~ on thread pages, each level of comment nesting is marked with a distinct coloured left border, making it easy to track conversation structure at a glance. The colours cycle through the same palette (red → teal → amber → green → purple → blue → coral).
-- Next-parent button ~ a floating circular arrow button appears in the bottom-right corner of thread pages. Clicking it skips past all child replies and jumps directly to the next top-level comment, making it easy to scan through a thread quickly.
-- Collapesed comment box ~ the comment box is automatically collapsed vertically to 4 rows in height. When a comment is being written, the textbox will return to its normal height of 8 rows.
+- Dark mode — replaces HN's default white and orange theme with a dark Reddit-inspired colour scheme. Covers the header, story list, comment threads, input fields, and footer. All text is forced to light colours, including comments that use inline HTML colour attributes that would otherwise slip through.
+- Comment depth colours — on thread pages, each level of comment nesting is marked with a distinct coloured left border placed directly alongside the comment text, making it easy to track conversation structure at a glance. The colours cycle through red → teal → amber → green → purple → blue → coral.
+- Collapsible comment box — the reply textarea below the post title starts compact at 4 rows. Clicking into it smoothly expands it to 8 rows with an orange focus ring. If you click away without typing anything, it collapses back down automatically.
+- Comment sort bar — a row of sort buttons appears above the comment list on thread pages, allowing comments to be reordered without a page reload. Four sort modes are available:
+  
+    Best — HN's original order (default)
+    New — most recently posted root comments first, using each comment's exact timestamp
+    Top — most-replied comments first, as a proxy for popularity (HN does not expose upvote counts)
+    Controversial — highest replies-per-hour ratio first, surfacing comments that generated rapid back-and-forth discussion
+  
+- Next-parent button — a floating circular arrow button (↓) fixed to the bottom-right corner of thread pages. Clicking it skips past all child replies and jumps directly to the next top-level comment. The button stays in sync with whichever sort order is currently active.
 
 
 Notes:

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hacker News — Dark Mode & Reddit-Style Comments
 // @namespace    http://tampermonkey.net/
-// @version      1.8
+// @version      1.9
 // @description  Adds dark mode, Reddit-style colour-coded comment threads, and a next-parent navigation button
 // @author       You
 // @match        *://news.ycombinator.com/*
@@ -265,6 +265,7 @@
         }
 
 
+        /* --- FLOATING NEXT-PARENT BUTTON ---
            A circular button fixed to the bottom-right corner of the screen.
            Clicking it scrolls down to the next top-level (depth 0) comment. */
         #hn-next-parent-btn {
@@ -450,13 +451,41 @@
                 // Save the previous group before starting a new one
                 if (currentGroup) groups.push(currentGroup);
 
-                // BUG FIX: The exact post time is stored in the title attribute
-                // of the <span class="age">, NOT on the <a> tag inside it.
-                // e.g. <span class="age" title="2024-03-01T14:22:00">
-                var ageSpan = row.querySelector('.age');
-                var timestamp = (ageSpan && ageSpan.title)
-                    ? new Date(ageSpan.title)
-                    : new Date(0); // Fallback to epoch if not found
+                // Read the post timestamp using two strategies:
+                //
+                // Strategy 1: Read the ISO datetime from the title attribute on
+                // the <span class="age"> e.g. title="2024-03-01T14:22:05"
+                // Safari's Date parser requires a strict ISO 8601 format, so we
+                // manually ensure the string is valid before using it.
+                //
+                // Strategy 2: If Strategy 1 fails or gives an invalid date, fall
+                // back to parsing the relative link text ("3 hours ago", "2 days ago")
+                // by subtracting the stated duration from the current time.
+                var ageSpan  = row.querySelector('.age');
+                var ageLink  = ageSpan ? ageSpan.querySelector('a') : null;
+                var timestamp = new Date(0); // Default fallback: epoch
+
+                if (ageSpan && ageSpan.title) {
+                    // Strategy 1: parse title attribute, replacing space with T if needed
+                    var isoStr = ageSpan.title.replace(' ', 'T');
+                    var parsed = new Date(isoStr);
+                    if (!isNaN(parsed.getTime())) {
+                        timestamp = parsed; // Valid date — use it
+                    }
+                }
+
+                // Strategy 2: if we still have epoch (strategy 1 failed), parse
+                // the human-readable link text like "3 hours ago" or "2 days ago"
+                if (timestamp.getTime() === 0 && ageLink) {
+                    var text = ageLink.textContent.trim();
+                    var now   = Date.now();
+                    var m;
+                    if      ((m = text.match(/(\d+)\s+minute/)))  timestamp = new Date(now - m[1] * 60000);
+                    else if ((m = text.match(/(\d+)\s+hour/)))    timestamp = new Date(now - m[1] * 3600000);
+                    else if ((m = text.match(/(\d+)\s+day/)))     timestamp = new Date(now - m[1] * 86400000);
+                    else if ((m = text.match(/(\d+)\s+month/)))   timestamp = new Date(now - m[1] * 30 * 86400000);
+                    else if ((m = text.match(/(\d+)\s+year/)))    timestamp = new Date(now - m[1] * 365 * 86400000);
+                }
 
                 currentGroup = {
                     root:        row,

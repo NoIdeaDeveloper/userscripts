@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hacker News — Dark Mode & Reddit-Style Comments
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.7
 // @description  Adds dark mode, Reddit-style colour-coded comment threads, and a next-parent navigation button
 // @author       You
 // @match        *://news.ycombinator.com/*
@@ -219,7 +219,52 @@
         [data-depth="8"] .commtext { border-left-color: #ff4500 !important; }
         [data-depth="9"] .commtext { border-left-color: #0dd3bb !important; }
 
-        /* --- FLOATING NEXT-PARENT BUTTON ---
+        /* --- COMMENT SORT BAR ---
+           A row of sort buttons inserted above the comment list.
+           Styled to blend with the dark theme. */
+        #hn-sort-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 4px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #343536;
+        }
+
+        /* Label text before the buttons */
+        #hn-sort-bar span {
+            font-size: 12px;
+            color: #818384 !important;
+            margin-right: 4px;
+        }
+
+        /* Each sort button */
+        .hn-sort-btn {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid #343536;
+            background-color: #272729;
+            color: #818384 !important;
+            cursor: pointer;
+            transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+            user-select: none;
+        }
+
+        .hn-sort-btn:hover {
+            border-color: #818384;
+            color: #d7dadc !important;
+        }
+
+        /* The currently active sort button gets an orange highlight */
+        .hn-sort-btn.active {
+            background-color: #ff6314;
+            border-color: #ff6314;
+            color: #ffffff !important;
+        }
+
+
            A circular button fixed to the bottom-right corner of the screen.
            Clicking it scrolls down to the next top-level (depth 0) comment. */
         #hn-next-parent-btn {
@@ -338,7 +383,180 @@
 
 
         // =====================================================================
-        // SECTION 5: FLOATING NEXT-PARENT BUTTON
+        // SECTION 5: COMMENT SORT BAR
+        // Adds a row of sort buttons (New / Top / Controversial) above the
+        // comment list. Clicking a button re-orders the root-level comments
+        // (and their child threads) in the DOM without reloading the page.
+        //
+        // IMPORTANT CAVEAT: HN does not expose individual comment scores in
+        // its HTML, so true score-based sorting is not possible. Instead:
+        //   - New:           sorted by timestamp (newest first)
+        //   - Top:           sorted by total reply count (most-replied = most popular)
+        //   - Controversial: sorted by replies-per-hour (fast discussion = divisive)
+        // =====================================================================
+
+        // --- STEP 5a: Build comment groups ---
+        // HN's comment table is flat — all .comtr rows are siblings inside a
+        // <tbody>. We need to group each root comment (depth=0) with all of
+        // its child rows (depth>0) so we can move them as a unit when sorting.
+
+        // Find the tbody that contains all comment rows
+        var firstComtr = document.querySelector('.comtr');
+        if (!firstComtr) return; // No comments on this page, stop here
+        var commentTbody = firstComtr.parentElement; // The <tbody> containing all rows
+
+        // Walk through every comment row and group them by root parent
+        var allRows = Array.from(commentTbody.querySelectorAll('.comtr'));
+        var groups = []; // Each entry = { root, children[], replyCount, timestamp }
+        var currentGroup = null;
+
+        allRows.forEach(function (row) {
+            var depth = parseInt(row.getAttribute('data-depth'), 10);
+
+            if (depth === 0) {
+                // This is a root comment — start a new group
+                if (currentGroup) groups.push(currentGroup);
+
+                // Read the exact post time from the title attribute of the age link
+                // HN formats it as an ISO 8601 datetime e.g. "2024-03-01T14:22:00"
+                var ageLink = row.querySelector('.age a');
+                var timestamp = ageLink && ageLink.title
+                    ? new Date(ageLink.title)
+                    : new Date(0); // Fallback to epoch if not found
+
+                currentGroup = {
+                    root: row,
+                    children: [],
+                    timestamp: timestamp,
+                    replyCount: 0
+                };
+            } else if (currentGroup) {
+                // This is a child of the current root — add it to the group
+                currentGroup.children.push(row);
+                currentGroup.replyCount++;
+            }
+        });
+
+        // Push the final group after the loop ends
+        if (currentGroup) groups.push(currentGroup);
+
+        // --- STEP 5b: Define sort functions ---
+        // Each function returns a copy of groups sorted in the desired order.
+
+        // NEW: most recently posted comment first
+        function sortByNew(groups) {
+            return groups.slice().sort(function (a, b) {
+                return b.timestamp - a.timestamp; // Newer timestamps are larger numbers
+            });
+        }
+
+        // TOP: most total replies first (best available proxy for upvotes)
+        function sortByTop(groups) {
+            return groups.slice().sort(function (a, b) {
+                return b.replyCount - a.replyCount;
+            });
+        }
+
+        // CONTROVERSIAL: highest replies-per-hour ratio.
+        // Comments that generated rapid back-and-forth are likely divisive.
+        function sortByControversial(groups) {
+            var now = Date.now();
+            return groups.slice().sort(function (a, b) {
+                // Age in hours since the comment was posted (minimum 0.1h to avoid /0)
+                var ageA = Math.max((now - a.timestamp) / 3600000, 0.1);
+                var ageB = Math.max((now - b.timestamp) / 3600000, 0.1);
+                // Score = replies per hour of age
+                var scoreA = a.replyCount / ageA;
+                var scoreB = b.replyCount / ageB;
+                return scoreB - scoreA; // Highest score first
+            });
+        }
+
+        // --- STEP 5c: Apply a sort to the DOM ---
+        // This function takes a sorted array of groups, removes all comment rows
+        // from the tbody, then re-inserts them in the new order.
+        function applySort(sortedGroups) {
+            // Remove all existing comment rows from the DOM (but keep references)
+            allRows.forEach(function (row) {
+                if (row.parentElement) row.parentElement.removeChild(row);
+            });
+
+            // Re-insert rows in the new sorted order, root first then its children
+            sortedGroups.forEach(function (group) {
+                commentTbody.appendChild(group.root);
+                group.children.forEach(function (child) {
+                    commentTbody.appendChild(child);
+                });
+            });
+
+            // After reordering, refresh the parentComments array used by the
+            // next-parent button so it navigates in the new visual order
+            parentComments = sortedGroups.map(function (g) { return g.root; });
+        }
+
+        // --- STEP 5d: Build and insert the sort bar UI ---
+        // We insert a <tr> containing the sort bar just before the first comment row
+        var sortBarRow = document.createElement('tr');
+        var sortBarCell = document.createElement('td');
+        sortBarCell.setAttribute('colspan', '2');
+
+        var sortBar = document.createElement('div');
+        sortBar.id = 'hn-sort-bar';
+
+        // Label
+        var label = document.createElement('span');
+        label.textContent = 'Sort by:';
+        sortBar.appendChild(label);
+
+        // Define the three buttons and their associated sort functions
+        var sortOptions = [
+            { label: 'Best',          fn: null },        // null = default HN order
+            { label: 'New',           fn: sortByNew },
+            { label: 'Top',           fn: sortByTop },
+            { label: 'Controversial', fn: sortByControversial }
+        ];
+
+        // Keep track of the original HN order so we can restore it for "Best"
+        var originalGroups = groups.slice();
+
+        sortOptions.forEach(function (option) {
+            var btn = document.createElement('button');
+            btn.className = 'hn-sort-btn';
+            btn.textContent = option.label;
+
+            // Mark "Best" as active by default since that is HN's natural order
+            if (option.label === 'Best') btn.classList.add('active');
+
+            btn.addEventListener('click', function () {
+                // Remove active class from all buttons, apply to clicked one
+                sortBar.querySelectorAll('.hn-sort-btn').forEach(function (b) {
+                    b.classList.remove('active');
+                });
+                btn.classList.add('active');
+
+                // Apply the sort — Best restores the original order
+                if (option.fn === null) {
+                    applySort(originalGroups);
+                } else {
+                    applySort(option.fn(groups));
+                }
+
+                // Scroll back to the top of the comment section after sorting
+                sortBarRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+
+            sortBar.appendChild(btn);
+        });
+
+        sortBarCell.appendChild(sortBar);
+        sortBarRow.appendChild(sortBarCell);
+
+        // Insert the sort bar row immediately before the first comment row
+        commentTbody.insertBefore(sortBarRow, firstComtr);
+
+
+        // =====================================================================
+        // SECTION 6: FLOATING NEXT-PARENT BUTTON
         // Creates a circular arrow button fixed to the bottom-right of the screen.
         // Each click finds the next top-level comment (data-depth="0") that is
         // below the current scroll position and smoothly scrolls to it.
@@ -351,7 +569,9 @@
         btn.textContent = '↓'; // Down arrow character
         document.body.appendChild(btn);
 
-        // Collect all top-level comment rows (depth 0) into an array for easy lookup
+        // Collect all top-level comment rows (depth 0) into an array for easy lookup.
+        // Declared with var (not const) so the sort function can reassign it
+        // to reflect the new visual order after a sort is applied.
         var parentComments = Array.from(document.querySelectorAll('.comtr[data-depth="0"]'));
 
         btn.addEventListener('click', function () {

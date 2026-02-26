@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TopHN Element Remover
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Remove specific div elements from TopHN
 // @author       You
 // @match        https://www.tophn.co/*
@@ -11,35 +11,59 @@
 (function() {
     'use strict';
 
-    // Function to remove the target elements
+    // CSS selector for the element(s) you want to remove
+    const SELECTOR = 'div.mt-2.px-3.py-2.bg-neutral-50.dark\\:bg-neutral-900.rounded';
+
+    // How long to keep retrying on page load (milliseconds)
+    const MAX_WAIT = 5000;
+
+    // How often to retry (milliseconds)
+    const INTERVAL = 200;
+
+    // Removes all matching elements and returns how many were removed
     function removeElements() {
-        // Select all div elements with the specific parent container classes
-        // This targets: <div class="mt-2 px-3 py-2 bg-neutral-50 dark:bg-neutral-900 rounded">
-        // The entire container including the background box will be removed
-        const targetDivs = document.querySelectorAll('div.mt-2.px-3.py-2.bg-neutral-50.dark\\:bg-neutral-900.rounded');
-        
-        // Loop through each matching element and remove it from the page
-        targetDivs.forEach(function(element) {
-            element.remove();
-        });
+        const targets = document.querySelectorAll(SELECTOR);
+        targets.forEach(el => el.remove());
+        return targets.length;
     }
 
-    // Run the function when the page first loads
-    removeElements();
+    // Keeps trying to remove elements until they're found or we hit MAX_WAIT.
+    // This handles the case where elements load after the script initially runs.
+    function removeWithRetry() {
+        let elapsed = 0;
 
-    // Create a MutationObserver to watch for newly added elements
-    // This ensures that any dynamically added elements matching our criteria are also removed
+        const timer = setInterval(function() {
+            const removed = removeElements();
+
+            elapsed += INTERVAL;
+
+            // Stop retrying once we've found and removed something, or timed out
+            if (removed > 0 || elapsed >= MAX_WAIT) {
+                clearInterval(timer);
+            }
+        }, INTERVAL);
+    }
+
+    // Watch for future DOM changes (e.g. after navigation or lazy loading)
+    // and remove matching elements as soon as they appear
     const observer = new MutationObserver(function(mutations) {
-        // When DOM changes are detected, run the removal function again
-        removeElements();
+        // Only act if something was actually added to the DOM
+        const hasAddedNodes = mutations.some(m => m.addedNodes.length > 0);
+        if (hasAddedNodes) {
+            removeElements();
+        }
     });
 
-    // Configure what mutations to watch for
-    const observerConfig = {
-        childList: true,      // Watch for added/removed child elements
-        subtree: true,        // Watch all descendants, not just direct children
-        characterData: false  // Don't watch for text content changes
-    };
+    // Start observing the whole document for added elements
+    observer.observe(document.documentElement, {
+        childList: true,  // Watch for added/removed elements
+        subtree: true      // Watch all descendants, not just direct children
+    });
+
+    // Kick off the retry loop on initial page load
+    removeWithRetry();
+
+})();
 
     // Start observing the entire document body for changes
     observer.observe(document.body, observerConfig);
